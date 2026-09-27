@@ -15,49 +15,71 @@ def run_agent(ticket, historical_cases):
     Run the ResolveIQ AI escalation agent.
     """
 
-    # Build context from the current ticket and recalled history
+    # Build context from current ticket and historical memory
     agent_prompt = build_agent_prompt(
         ticket,
         historical_cases
     )
 
-    # Create Groq client
+    # Get API key
     api_key = os.getenv("GROQ_API_KEY")
 
     if not api_key:
-        raise ValueError(
-            "GROQ_API_KEY is not configured."
+        return {
+            "agent": "ResolveIQ",
+            "status": "error",
+            "error": "GROQ_API_KEY is not configured."
+        }
+
+    try:
+        client = Groq(api_key=api_key)
+
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": agent_prompt
+                }
+            ],
+            temperature=0.2,
         )
 
-    client = Groq(api_key=api_key)
+        ai_reasoning = response.choices[0].message.content
 
-    # Ask the LLM to analyze the case
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            },
-            {
-                "role": "user",
-                "content": agent_prompt
-            }
-        ],
-        temperature=0.2,
-    )
+        # Structured escalation decision
+        decision = analyze_escalation(
+            ticket,
+            historical_cases
+        )
 
-    ai_reasoning = response.choices[0].message.content
+        return {
+            **decision,
+            "agent": "ResolveIQ",
+            "status": "success",
+            "prompt_version": "v3",
+            "ai_reasoning": ai_reasoning
+        }
 
-    # Keep our structured escalation logic as a safety layer
-    decision = analyze_escalation(
-        ticket,
-        historical_cases
-    )
+    except Exception as error:
+        # Fallback to the rule-based decision engine
+        decision = analyze_escalation(
+            ticket,
+            historical_cases
+        )
 
-    return {
-        **decision,
-        "agent": "ResolveIQ",
-        "prompt_version": "v3",
-        "ai_reasoning": ai_reasoning
-    }
+        return {
+            **decision,
+            "agent": "ResolveIQ",
+            "status": "fallback",
+            "prompt_version": "v3",
+            "ai_reasoning": (
+                "LLM unavailable. "
+                "ResolveIQ used its structured escalation logic."
+            ),
+            "error": str(error)
+        }
