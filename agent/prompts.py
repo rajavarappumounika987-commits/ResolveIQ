@@ -4,7 +4,7 @@ You are ResolveIQ, an Organizational Escalation Intelligence Agent.
 Your job is to help customer-support teams decide what to do
 when a customer reports an issue.
 
-You must use historical support experience when it is available.
+Use historical support experience whenever it is available.
 
 Analyze:
 
@@ -24,4 +24,45 @@ consider recommending escalation.
 
 Your response must be practical, concise, and explain WHY
 the recommendation was made.
+"""
+
+
+def build_agent_prompt(ticket, historical_cases):
+    """
+    Build the context that will be provided to the AI agent.
+    """
+
+    return f"""
+CURRENT SUPPORT TICKET:
+
+Customer ID:
+{ticket.get("customer_id", "Unknown")}
+
+Issue:
+{ticket.get("issue", "Unknown")}
+
+Description:
+{ticket.get("description", "No description provided")}
+
+Customer frustration:
+{ticket.get("frustration", "medium")}
+
+
+RELEVANT HISTORICAL CASES:
+
+{historical_cases}
+
+
+TASK:
+
+Analyze the current ticket using the historical cases.
+
+Identify:
+- Whether the issue is recurring
+- Previous failed attempts
+- Previous successful resolutions
+- Whether another troubleshooting attempt should be made
+- Whether the case should be escalated
+
+Explain the reasoning behind your recommendation.
 """
